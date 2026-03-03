@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Mess Finder - DY Patil College</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Poppins',sans-serif;background:#f4f6f9;}
+.navbar{background:white;padding:15px 40px;box-shadow:0 2px 10px rgba(0,0,0,0.1);}
+.logo{font-size:22px;font-weight:700;color:#5a2d82;}
+.header{background:linear-gradient(to right,#5a2d82,#8e44ad);color:white;padding:40px;text-align:center;}
+.container{text-align:center;padding:20px;}
+.card{background:white;width:300px;border-radius:15px;overflow:hidden;box-shadow:0 5px 20px rgba(0,0,0,0.1);margin:15px;display:inline-block;}
+.card img{width:100%;height:180px;object-fit:cover;}
+.card-content{padding:15px;}
+.rating{background:#ffcc00;padding:3px 8px;border-radius:10px;font-size:12px;font-weight:600;}
+.rent{color:#27ae60;font-weight:600;}
+.call-btn{background:#5a2d82;color:white;padding:8px 15px;border:none;border-radius:20px;cursor:pointer;margin-top:10px;}
+.map-link{display:block;margin-top:8px;text-decoration:none;color:#5a2d82;font-weight:600;}
+.distance{margin-top:8px;font-weight:600;color:#5a2d82;}
+.nearest{background:green;color:white;padding:3px 8px;border-radius:10px;font-size:12px;display:inline-block;margin-bottom:5px;}
+.form-section{background:white;margin:20px;padding:20px;border-radius:15px;box-shadow:0 5px 20px rgba(0,0,0,0.1);text-align:center;}
+.form-section input{padding:8px;margin:5px;}
+.add-btn{background:#27ae60;color:white;padding:8px 15px;border:none;border-radius:20px;cursor:pointer;}
+</style>
+</head>
+
+<body>
+<div class="navbar"><div class="logo">MessFinder</div></div>
+
+<div class="header">
+<h1>Mess Near DY Patil College</h1>
+<p>Add Mess With Image Upload</p>
+</div>
+
+<div class="form-section">
+<h3>Add New Mess</h3>
+<input type="text" id="name" placeholder="Mess Name" required>
+<input type="text" id="location" placeholder="Location">
+<input type="number" step="any" id="lat" placeholder="Latitude">
+<input type="number" step="any" id="lng" placeholder="Longitude">
+<input type="text" id="phone" placeholder="Phone">
+<input type="text" id="rent" placeholder="Rent">
+<input type="text" id="calendar" placeholder="Calendar">
+<input type="file" id="image" accept="image/*">
+<button class="add-btn" onclick="addMess()">Add Mess</button>
+</div>
+
+<div class="container" id="messList"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+// DY Patil College Coordinates
+const collegeLat = 16.732109;
+const collegeLng = 74.240538;
+
+// 🔹 Initialize Firebase (Replace with your Firebase config)
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Calculate distance
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    const c = 2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return (R*c).toFixed(2);
+}
+
+// Real-time display of messes
+function displayMessRealtime() {
+  db.collection("messes").onSnapshot(snapshot => {
+    let list = document.getElementById("messList");
+    let messData = [];
+    snapshot.forEach(doc => { messData.push(doc.data()); });
+
+    messData.forEach(mess => {
+      mess.distance = calculateDistance(collegeLat, collegeLng, mess.lat, mess.lng);
+    });
+
+    messData.sort((a,b)=> a.distance - b.distance);
+
+    list.innerHTML = "";
+    messData.forEach((mess,index) => {
+      let nearestTag = index === 0 ? "<div class='nearest'>Nearest</div>" : "";
+      let imageSrc = mess.image || "https://source.unsplash.com/400x300/?food";
+      list.innerHTML += `
+        <div class="card">
+            <img src="${imageSrc}" alt="mess">
+            <div class="card-content">
+                ${nearestTag}
+                <span class="rating">⭐ ${mess.rating||"New"}</span>
+                <h3>${mess.name}</h3>
+                <p>${mess.location}</p>
+                <a class="map-link" href="https://www.google.com/maps/dir/${collegeLat},${collegeLng}/${mess.lat},${mess.lng}" target="_blank">📍 Route from College</a>
+                <p class="distance">📏 ${mess.distance} KM from College</p>
+                <p class="rent">₹${mess.rent}/month</p>
+                <p>${mess.calendar}</p>
+                <button class="call-btn" onclick="callNow('${mess.phone}')">📞 Call Now</button>
+            </div>
+        </div>
+      `;
+    });
+  });
+}
+
+// Add mess
+function addMess(){
+    let name=document.getElementById("name").value.trim();
+    let location=document.getElementById("location").value.trim();
+    let lat=parseFloat(document.getElementById("lat").value);
+    let lng=parseFloat(document.getElementById("lng").value);
+    let phone=document.getElementById("phone").value.trim();
+    let rent=document.getElementById("rent").value.trim();
+    let calendar=document.getElementById("calendar").value.trim();
+    let imageInput=document.getElementById("image");
+
+    if(name=="" || isNaN(lat) || isNaN(lng)){
+        alert("Mess Name, Latitude & Longitude Required!");
+        return;
+    }
+
+    // Check duplicate in Firestore
+    db.collection("messes").where("name","==",name).where("location","==",location).get().then(snapshot=>{
+      if(!snapshot.empty){ alert("This mess is already added!"); return; }
+
+      let reader = new FileReader();
+      reader.onload = function(){
+        let imageBase64 = reader.result;
+        db.collection("messes").add({name,location,lat,lng,phone,rent,calendar,rating:"New",image:imageBase64});
+      };
+      if(imageInput.files[0]){ reader.readAsDataURL(imageInput.files[0]); }
+      else{ db.collection("messes").add({name,location,lat,lng,phone,rent,calendar,rating:"New"}); }
+
+      // Clear form inputs
+      document.querySelectorAll(".form-section input").forEach(input=>input.value="");
+    });
+}
+
+// Call function
+function callNow(phone){ window.location.href="tel:"+phone; }
+
+// Start real-time display
+displayMessRealtime();
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDh41OgigL7i2-PqXvdcKUEM7sZSdnCvVM",
+  authDomain: "dyp-mess-finder.firebaseapp.com",
+  projectId: "dyp-mess-finder",
+  storageBucket: "dyp-mess-finder.firebasestorage.app",
+  messagingSenderId: "925388818349",
+  appId: "1:925388818349:web:8c11a4b263645825ce4324",
+  measurementId: "G-H4MG0LX02V"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+</script>
+</body>
+</html>
